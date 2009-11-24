@@ -1,5 +1,5 @@
 Name:          ifuse
-Version:       0.9.4
+Version:       0.9.5
 Release:       %mkrel 1
 Summary:       Mount Apple iPhone and iPod touch devices
 
@@ -26,7 +26,7 @@ A fuse filesystem for mounting iPhone and iPod touch devices
 %setup -q
 
 %build
-%configure2_5x --disable-static
+%configure2_5x
 %make
 
 %install
