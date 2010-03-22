@@ -1,5 +1,5 @@
 Name:          ifuse
-Version:       0.9.7
+Version:       1.0.0
 Release:       %mkrel 1
 Summary:       Mount Apple iPhone and iPod touch devices
 
@@ -12,7 +12,7 @@ BuildRoot:     %{_tmppath}/%{name}-%{version}-%{release}-buildroot
 Requires:      hal
 BuildRequires: glib2-devel
 BuildRequires: fuse-devel
-BuildRequires: libimobiledevice-devel
+BuildRequires: libimobiledevice-devel >= 1.0.0
 
 # Require these until a formal release
 BuildRequires: libtool
