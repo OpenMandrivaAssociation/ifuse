@@ -1,29 +1,23 @@
 Name:          ifuse
-Version:       1.0.0
-Release:       %mkrel 2
+Version:       1.1.1
+Release:       %mkrel 1
 Summary:       Mount Apple iPhone and iPod touch devices
 
 Group:         System/Libraries
 License:       GPLv2+
-URL:           http://matt.colyer.name/projects/iphone-linux/
-Source0:       http://cloud.github.com/downloads/MattColyer/%{name}/%{name}-%{version}.tar.bz2
+URL:           http://www.libimobiledevice.org/
+Source0:       http://www.libimobiledevice.org/downloads/%{name}-%{version}.tar.bz2
+Patch0:        ifuse-1.1.1-fix-link.patch
 BuildRoot:     %{_tmppath}/%{name}-%{version}-%{release}-buildroot
-
-Requires:      hal
-BuildRequires: glib2-devel
 BuildRequires: fuse-devel
 BuildRequires: libimobiledevice-devel >= 1.0.0
-
-# Require these until a formal release
-BuildRequires: libtool
-BuildRequires: automake
-BuildRequires: autoconf
 
 %description
 A fuse filesystem for mounting iPhone and iPod touch devices
 
 %prep
 %setup -q
+%patch0 -p0
 
 %build
 %configure2_5x
