@@ -1,0 +1,20 @@
+--- src/Makefile.am.link	2011-04-05 11:08:30.000000000 +0200
++++ src/Makefile.am	2011-04-05 11:09:39.000000000 +0200
+@@ -1,5 +1,5 @@
+ AM_CFLAGS = $(libglib2_CFLAGS) $(libfuse_CFLAGS) $(libimobiledevice_CFLAGS) -g
+-AM_LDFLAGS =  $(libglib2_LIBS) $(libfuse_LIBS) $(libimobiledevice_LIBS)
++LDADD =  $(libglib2_LIBS) $(libfuse_LIBS) $(libimobiledevice_LIBS)
+ 
+ bin_PROGRAMS = ifuse
+ 
+--- src/Makefile.in.link	2011-04-05 11:08:39.000000000 +0200
++++ src/Makefile.in	2011-04-05 11:10:04.000000000 +0200
+@@ -159,7 +159,7 @@
+ top_builddir = @top_builddir@
+ top_srcdir = @top_srcdir@
+ AM_CFLAGS = $(libglib2_CFLAGS) $(libfuse_CFLAGS) $(libimobiledevice_CFLAGS) -g
+-AM_LDFLAGS = $(libglib2_LIBS) $(libfuse_LIBS) $(libimobiledevice_LIBS)
++LDADD = $(libglib2_LIBS) $(libfuse_LIBS) $(libimobiledevice_LIBS)
+ ifuse_SOURCES = ifuse.c
+ all: all-am
+ 
