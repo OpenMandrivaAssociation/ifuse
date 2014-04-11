@@ -1,6 +1,6 @@
 Name:          ifuse
 Version:       1.1.3
-Release:       %mkrel 1
+Release:       %mkrel 2
 Summary:       Mount Apple iPhone and iPod touch devices
 
 Group:         System/Libraries
@@ -9,7 +9,7 @@ URL:           http://www.libimobiledevice.org/
 Source0:       http://www.libimobiledevice.org/downloads/%{name}-%{version}.tar.bz2
 Patch0:        ifuse-1.1.1-fix-link.patch
 BuildRequires: fuse-devel
-BuildRequires: libimobiledevice-devel >= 1.0.0
+BuildRequires: libimobiledevice-devel >= 1.1.6
 
 %description
 A fuse filesystem for mounting iPhone and iPod touch devices
