@@ -1,6 +1,6 @@
 Name:          ifuse
 Version:       1.1.3
-Release:       %mkrel 1
+Release:       %mkrel 3
 Summary:       Mount Apple iPhone and iPod touch devices
 
 Group:         System/Libraries
