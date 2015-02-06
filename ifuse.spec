@@ -1,6 +1,6 @@
 Name:			ifuse
 Version:		1.1.3
-Release:		4
+Release:		5
 Summary:		Mount Apple iPhone and iPod touch devices
 Group:			System/Libraries
 License:		GPLv2+
