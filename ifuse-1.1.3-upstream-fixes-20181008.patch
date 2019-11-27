@@ -1,0 +1,299 @@
+From e16cda8fdacbfe40055b80c0c1bf11d312784aed Mon Sep 17 00:00:00 2001
+From: Martin Szulecki <m.szulecki@libimobiledevice.org>
+Date: Thu, 9 Oct 2014 16:40:14 +0200
+Subject: [PATCH] Use automake silent rules if available
+
+---
+ configure.ac | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/configure.ac b/configure.ac
+index 5e8a4eb..468be81 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -3,6 +3,7 @@
+ 
+ AC_PREREQ(2.61)
+ AC_INIT(ifuse, 1.1.3)
++m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES])
+ AM_INIT_AUTOMAKE([dist-bzip2 no-dist-gzip])
+ AC_CONFIG_SRCDIR([src/])
+ AC_CONFIG_HEADERS([config.h])
+@@ -42,6 +43,8 @@ AC_FUNC_MALLOC
+ AC_FUNC_REALLOC
+ AC_CHECK_FUNCS([strcasecmp strdup strerror strndup])
+ 
++m4_ifdef([AM_SILENT_RULES],[AM_SILENT_RULES([yes])])
++
+ AC_OUTPUT(Makefile src/Makefile docs/Makefile)
+ 
+ echo "
+From 988161f3cf77620abc02b9d7e677a82d7ea3d197 Mon Sep 17 00:00:00 2001
+From: Martin Szulecki <m.szulecki@libimobiledevice.org>
+Date: Thu, 9 Oct 2014 16:45:18 +0200
+Subject: [PATCH] Add hint about how to retrieve 'appid' argument to README
+
+---
+ README | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/README b/README
+index cf69e3a..067e222 100644
+--- a/README
++++ b/README
+@@ -77,6 +77,9 @@ using the --container parameter:
+ 
+ 	$ ifuse --container <appid> <mountpoint>
+ 
++If ideviceinstaller is installed, obtain the 'appid' (bundle identifier) using:
++	$ ideviceinstaller -l
++
+ Addtional help can be shown using:
+ 
+ 	$ ifuse --help
+From 8e633f44d6f744f564ebdbe6cb214d84ca9af69c Mon Sep 17 00:00:00 2001
+From: Nikias Bassen <nikias@gmx.li>
+Date: Fri, 4 Nov 2016 14:27:29 +0100
+Subject: [PATCH] Print useful error message when mounting an app's Documents
+ folder fails
+
+---
+ src/ifuse.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/src/ifuse.c b/src/ifuse.c
+index 128f09f..b060871 100644
+--- a/src/ifuse.c
++++ b/src/ifuse.c
+@@ -813,7 +813,10 @@ int main(int argc, char *argv[])
+ 			char *str = NULL;
+ 			plist_get_string_val(node, &str);
+ 			fprintf(stderr, "ERROR: %s\n", str);
+-			if (str) free(str);
++			if (str && !strcmp(str, "InstallationLookupFailed")) {
++				fprintf(stderr, "The App '%s' is either not present on the device, or the 'UIFileSharingEnabled' key is not set in its Info.plist. Starting with iOS 8.3 this key is mandatory to allow access to an app's Documents folder.\n", opts.appid);
++			}
++			free(str);
+ 			goto leave_err;
+ 		}
+ 		plist_free(dict);
+From df048a1d07628a6a02ed77a8dc0f64930b78acee Mon Sep 17 00:00:00 2001
+From: Nikias Bassen <nikias@gmx.li>
+Date: Fri, 4 Nov 2016 17:45:47 +0100
+Subject: [PATCH] Add new --list-apps command line switch that will print a
+ list of file sharing enabled apps
+
+---
+ src/ifuse.c | 92 ++++++++++++++++++++++++++++++++++++++++++++++++++---
+ 1 file changed, 88 insertions(+), 4 deletions(-)
+
+diff --git a/src/ifuse.c b/src/ifuse.c
+index b060871..9a5a812 100644
+--- a/src/ifuse.c
++++ b/src/ifuse.c
+@@ -45,6 +45,7 @@
+ #include <libimobiledevice/afc.h>
+ #ifdef HAVE_LIBIMOBILEDEVICE_1_1
+ #include <libimobiledevice/house_arrest.h>
++#include <libimobiledevice/installation_proxy.h>
+ #endif
+ 
+ /* FreeBSD and others don't have ENODATA, so let's fake it */
+@@ -70,6 +71,7 @@ static struct {
+ #ifdef HAVE_LIBIMOBILEDEVICE_1_1
+ 	char *appid;
+ 	int use_container;
++	int should_list_apps;
+ #endif
+ 	char *service_name;
+ #ifdef HAVE_LIBIMOBILEDEVICE_1_1_5
+@@ -87,6 +89,7 @@ enum {
+ 	KEY_UDID_LONG,
+ 	KEY_VENDOR_DOCUMENTS_LONG,
+ 	KEY_VENDOR_CONTAINER_LONG,
++	KEY_LIST_APPS_LONG,
+ 	KEY_DEBUG,
+ 	KEY_DEBUG_LONG
+ };
+@@ -104,6 +107,7 @@ static struct fuse_opt ifuse_opts[] = {
+ #ifdef HAVE_LIBIMOBILEDEVICE_1_1
+ 	FUSE_OPT_KEY("--documents %s", KEY_VENDOR_DOCUMENTS_LONG),
+ 	FUSE_OPT_KEY("--container %s", KEY_VENDOR_CONTAINER_LONG),
++	FUSE_OPT_KEY("--list-apps",    KEY_LIST_APPS_LONG),
+ #endif
+ 	FUSE_OPT_END
+ };
+@@ -637,6 +641,7 @@ static void print_usage()
+ #ifdef HAVE_LIBIMOBILEDEVICE_1_1
+ 	fprintf(stderr, "  --documents APPID\tmount 'Documents' folder of app identified by APPID\n");
+ 	fprintf(stderr, "  --container APPID\tmount sandbox root of an app identified by APPID\n");
++	fprintf(stderr, "  --list-apps\t\tlist installed apps that have file sharing enabled\n");
+ #endif
+ 	fprintf(stderr, "  --root\t\tmount root file system (jailbroken device required)\n");
+ 	fprintf(stderr, "\n");
+@@ -689,6 +694,9 @@ static int ifuse_opt_proc(void *data, const char *arg, int key, struct fuse_args
+ 	case KEY_VERSION:
+ 		fprintf(stderr, "%s %s\n", PACKAGE_NAME, PACKAGE_VERSION);
+ 		exit(EXIT_SUCCESS);
++	case KEY_LIST_APPS_LONG:
++		opts.should_list_apps = 1;
++		break;
+ 	case FUSE_OPT_KEY_OPT:
+ 		/* ignore other options and pass them to fuse_main later */
+ 		break;
+@@ -707,6 +715,77 @@ static int ifuse_opt_proc(void *data, const char *arg, int key, struct fuse_args
+ 	return res;
+ }
+ 
++static void list_available_apps(const char *udid)
++{
++	idevice_t dev = NULL;
++	if (idevice_new(&dev, udid) != IDEVICE_E_SUCCESS) {
++		fprintf(stderr, "ERROR: Failed to connect to device %s\n", udid);
++		goto leave_cleanup;
++	}
++
++	instproxy_client_t ip = NULL;
++	if (instproxy_client_start_service(dev, &ip, "ifuse") != INSTPROXY_E_SUCCESS) {
++		fprintf(stderr, "ERROR: Couldn't connect to installation proxy on device %s\n", udid);
++		goto leave_cleanup;
++	}
++
++	plist_t client_opts = instproxy_client_options_new();
++	instproxy_client_options_add(client_opts, "ApplicationType", "User", NULL);
++	instproxy_client_options_set_return_attributes(client_opts,
++				"CFBundleIdentifier",
++				"CFBundleDisplayName",
++				"CFBundleVersion",
++				"UIFileSharingEnabled",
++				NULL
++	);
++
++	plist_t apps = NULL;
++	instproxy_browse(ip, client_opts, &apps);
++
++	if (!apps || (plist_get_node_type(apps) != PLIST_ARRAY)) {
++		fprintf(stderr, "ERROR: instproxy_browse returnd an invalid plist?!\n");
++		goto leave_cleanup;
++	}
++
++	uint32_t i = 0;
++	for (i = 0; i < plist_array_get_size(apps); i++) {
++		plist_t node = plist_array_get_item(apps, i);
++		if (node && plist_get_node_type(node) == PLIST_DICT) {
++			uint8_t sharing_enabled = 0;
++			plist_t val = plist_dict_get_item(node, "UIFileSharingEnabled");
++			if (val && plist_get_node_type(val) == PLIST_BOOLEAN) {
++				plist_get_bool_val(val, &sharing_enabled);
++			}
++			if (sharing_enabled) {
++				char *bid = NULL;
++				char *ver = NULL;
++				char *name = NULL;
++				val = plist_dict_get_item(node, "CFBundleIdentifier");
++				if (val) {
++					plist_get_string_val(val, &bid);
++				}
++				val = plist_dict_get_item(node, "CFBundleVersion");
++				if (val) {
++					plist_get_string_val(val, &ver);
++				}
++				val = plist_dict_get_item(node, "CFBundleDisplayName");
++				if (val) {
++					plist_get_string_val(val, &name);
++				}
++				printf("%s, \"%s\", \"%s\"\n", bid, ver, name);
++				free(bid);
++				free(ver);
++				free(name);
++			}
++		}
++	}
++	plist_free(apps);
++
++leave_cleanup:
++	instproxy_client_free(ip);
++	idevice_free(dev);
++}
++
+ int main(int argc, char *argv[])
+ {
+ 	int res = EXIT_FAILURE;
+@@ -721,13 +800,18 @@ int main(int argc, char *argv[])
+ 		return EXIT_FAILURE;
+ 	}
+ 
+-	if (!opts.mount_point) {
+-		fprintf(stderr, "ERROR: No mount point specified\n");
++	if (opts.device_udid && strlen(opts.device_udid) != 40) {
++		fprintf(stderr, "Invalid device UDID specified, length needs to be 40 characters\n");
+ 		return EXIT_FAILURE;
+ 	}
+ 
+-	if (opts.device_udid && strlen(opts.device_udid) != 40) {
+-		fprintf(stderr, "Invalid device UDID specified, length needs to be 40 characters\n");
++	if (opts.should_list_apps) {
++		list_available_apps(opts.device_udid);
++		return EXIT_SUCCESS;
++	}
++
++	if (!opts.mount_point) {
++		fprintf(stderr, "ERROR: No mount point specified\n");
+ 		return EXIT_FAILURE;
+ 	}
+ 
+From 3b00243682962fec4f78f03d96cdded730cae38b Mon Sep 17 00:00:00 2001
+From: Nikias Bassen <nikias@gmx.li>
+Date: Mon, 1 Oct 2018 09:18:09 +0200
+Subject: [PATCH] Remove length check on UDID argument to support newer devices
+
+---
+ src/ifuse.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/src/ifuse.c b/src/ifuse.c
+index 9a5a812..dff2037 100644
+--- a/src/ifuse.c
++++ b/src/ifuse.c
+@@ -634,7 +634,7 @@ static void print_usage()
+ 	fprintf(stderr, "Usage: " PACKAGE_NAME " MOUNTPOINT [OPTIONS]\n");
+ 	fprintf(stderr, "Mount directories of an iOS device locally using fuse.\n\n");
+ 	fprintf(stderr, "  -o opt,[opt...]\tmount options\n");
+-	fprintf(stderr, "  -u, --udid UDID\tmount specific device by its 40-digit device UDID\n");
++	fprintf(stderr, "  -u, --udid UDID\tmount specific device by UDID\n");
+ 	fprintf(stderr, "  -h, --help\t\tprint usage information\n");
+ 	fprintf(stderr, "  -V, --version\t\tprint version\n");
+ 	fprintf(stderr, "  -d, --debug\t\tenable libimobiledevice communication debugging\n");
+@@ -800,8 +800,8 @@ int main(int argc, char *argv[])
+ 		return EXIT_FAILURE;
+ 	}
+ 
+-	if (opts.device_udid && strlen(opts.device_udid) != 40) {
+-		fprintf(stderr, "Invalid device UDID specified, length needs to be 40 characters\n");
++	if (opts.device_udid && !*opts.device_udid) {
++		fprintf(stderr, "ERROR: UDID must not be empty\n");
+ 		return EXIT_FAILURE;
+ 	}
+ 
+From e75d32c34d0e8b80320f0a007d5ecbb3f55ef7f0 Mon Sep 17 00:00:00 2001
+From: Yves-Alexis Perez <corsac-s@users.noreply.github.com>
+Date: Mon, 8 Oct 2018 13:34:44 +0200
+Subject: [PATCH] Fix typo in error message
+
+---
+ src/ifuse.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/ifuse.c b/src/ifuse.c
+index dff2037..9948015 100644
+--- a/src/ifuse.c
++++ b/src/ifuse.c
+@@ -743,7 +743,7 @@ static void list_available_apps(const char *udid)
+ 	instproxy_browse(ip, client_opts, &apps);
+ 
+ 	if (!apps || (plist_get_node_type(apps) != PLIST_ARRAY)) {
+-		fprintf(stderr, "ERROR: instproxy_browse returnd an invalid plist?!\n");
++		fprintf(stderr, "ERROR: instproxy_browse returned an invalid plist?!\n");
+ 		goto leave_cleanup;
+ 	}
+ 
