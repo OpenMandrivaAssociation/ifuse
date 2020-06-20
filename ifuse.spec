@@ -25,6 +25,6 @@ A fuse filesystem for mounting iPhone and iPod touch devices
 %make_install
 
 %files
-%doc AUTHORS COPYING README
+%doc AUTHORS COPYING README.md
 %{_bindir}/ifuse
 %{_mandir}/man1/*
