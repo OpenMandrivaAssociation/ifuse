@@ -1,6 +1,9 @@
+%define	git	20211124 
+
 Name:		ifuse
-Version:	02022021
-Release:	1
+#Version:	02022021
+Version:	1.1.5
+Release:	1.%{git}.0
 Summary:	Mount Apple iPhone and iPod touch devices
 Group:		System/Libraries
 License:	GPLv2+
