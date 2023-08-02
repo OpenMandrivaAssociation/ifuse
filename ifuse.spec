@@ -1,14 +1,17 @@
-%define	git	20211124 
+%define	git	20230802 
 
 Name:		ifuse
-#Version:	02022021
 Version:	1.1.5
-Release:	1.%{git}.0
+Release:	%{?git:0.%{git}.}1
 Summary:	Mount Apple iPhone and iPod touch devices
 Group:		System/Libraries
 License:	GPLv2+
 URL:		http://www.libimobiledevice.org/
+%if 0%{?git:1}
+Source0:	https://github.com/libimobiledevice/ifuse/archive/refs/heads/master.tar.gz#/%{name}-%{git}.tar.gz
+%else
 Source0:	http://www.libimobiledevice.org/downloads/%{name}-%{version}.tar.xz
+%endif
 
 BuildRequires: pkgconfig(fuse)
 BuildRequires: pkgconfig(libimobiledevice-1.0)
@@ -18,11 +21,11 @@ BuildRequires: pkgconfig(libplist-2.0)
 A fuse filesystem for mounting iPhone and iPod touch devices
 
 %prep
-%autosetup -p1
-
-%build
+%autosetup -p1 -n %{name}-%{?git:master}%{!?git:%{version}}
 ./autogen.sh
 %configure
+
+%build
 %make_build
 
 %install
