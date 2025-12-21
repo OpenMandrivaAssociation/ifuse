@@ -13,6 +13,11 @@ Source0:	https://github.com/libimobiledevice/ifuse/archive/refs/heads/master.tar
 Source0:	http://www.libimobiledevice.org/downloads/%{name}-%{version}.tar.xz
 %endif
 
+BuildRequires:	autoconf
+BuildRequires:	automake
+BuildRequires:	libtool-base
+BuildRequires:	slibtool
+BuildRequires:	make
 BuildRequires: pkgconfig(fuse)
 BuildRequires: pkgconfig(libimobiledevice-1.0)
 BuildRequires: pkgconfig(libplist-2.0)
